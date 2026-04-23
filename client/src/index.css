@@ -392,12 +392,32 @@ input[type="file"] {
   display: grid;
   place-items: center;
   background: #17110c;
+  overflow: hidden;
 }
 
 .modal-backdrop img {
-  max-width: 100%;
-  max-height: 100%;
+  display: block;
+  width: 100vw;
+  height: 100vh;
   object-fit: contain;
+}
+
+.save-toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 1;
+  padding: 9px 12px;
+  border-radius: 999px;
+  background: rgb(255 248 232 / 88%);
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 900;
+}
+
+.save-error {
+  background: rgb(255 232 227 / 92%);
+  color: var(--danger);
 }
 
 .config-backdrop {

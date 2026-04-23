@@ -99,6 +99,7 @@ export default function RequestComposer({ stage, onRequestChange, onSubmit }) {
       <ConfigModal
         isOpen={isConfigOpen}
         config={config}
+        isEditMode={Boolean(stage.request.attachment)}
         onCancel={() => setIsConfigOpen(false)}
         onDone={(nextConfig) => {
           onRequestChange(stage.id, { config: nextConfig });

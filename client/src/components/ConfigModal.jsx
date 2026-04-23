@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 
-const sizes = ["1024x1024", "1536x1024", "1024x1536"];
+const sizes = ["auto", "1024x1024", "1536x1024", "1024x1536"];
 const qualities = ["high", "medium", "low", "auto"];
 const formats = ["png", "jpeg", "webp"];
 const backgrounds = ["auto", "opaque"];
 const moderationModes = ["auto", "low"];
+const inputFidelities = ["low", "high"];
 
-export default function ConfigModal({ isOpen, config, onCancel, onDone }) {
+export default function ConfigModal({ isOpen, config, isEditMode, onCancel, onDone }) {
   const [draft, setDraft] = useState(config);
 
   useEffect(() => {
@@ -128,6 +129,22 @@ export default function ConfigModal({ isOpen, config, onCancel, onDone }) {
               ))}
             </select>
           </label>
+
+          {isEditMode ? (
+            <label>
+              <span>Input fidelity</span>
+              <select
+                value={draft.inputFidelity}
+                onChange={(event) => updateConfig({ inputFidelity: event.target.value })}
+              >
+                {inputFidelities.map((fidelity) => (
+                  <option key={fidelity} value={fidelity}>
+                    {fidelity}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
         </div>
 
         <footer>

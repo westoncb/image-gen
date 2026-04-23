@@ -6,12 +6,13 @@ import { promptSlug, resultToAttachment } from "./lib/image.js";
 
 const DEFAULT_CONFIG = {
   model: "gpt-image-2",
-  size: "1024x1024",
+  size: "auto",
   quality: "high",
   outputFormat: "png",
   outputCompression: 100,
   background: "auto",
-  moderation: "auto",
+  moderation: "low",
+  inputFidelity: "low",
 };
 
 function createStage(index, parentStageId = null, attachment = null) {

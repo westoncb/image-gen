@@ -56,6 +56,12 @@ export default function ResultCard({ stage, onEdit, onPreviewClick }) {
         <strong>{result.size}</strong>
         <span>Background</span>
         <strong>{result.background}</strong>
+        {result.inputFidelity ? (
+          <>
+            <span>Input fidelity</span>
+            <strong>{result.inputFidelity}</strong>
+          </>
+        ) : null}
         <span>Usage</span>
         <strong>{formatUsage(result.usage)}</strong>
       </div>

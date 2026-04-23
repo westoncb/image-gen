@@ -30,12 +30,13 @@ imageRouter.post("/", upload.single("image"), async (req, res, next) => {
   try {
     const prompt = String(req.body.prompt || "").trim();
     const model = String(req.body.model || "gpt-image-2").trim();
-    const size = String(req.body.size || "1024x1024").trim();
+    const size = String(req.body.size || "auto").trim();
     const quality = String(req.body.quality || "high").trim();
     const outputFormat = String(req.body.output_format || "png").trim();
     const background = String(req.body.background || "auto").trim();
-    const moderation = String(req.body.moderation || "auto").trim();
+    const moderation = String(req.body.moderation || "low").trim();
     const outputCompression = Number(req.body.output_compression || 100);
+    const inputFidelity = String(req.body.input_fidelity || "low").trim();
 
     if (!prompt) {
       return res.status(400).json({ error: "Prompt is required." });
@@ -61,6 +62,7 @@ imageRouter.post("/", upload.single("image"), async (req, res, next) => {
     const response = req.file
       ? await openai.images.edit({
           ...common,
+          input_fidelity: inputFidelity,
           image: fs.createReadStream(req.file.path),
         })
       : await openai.images.generate(common);
@@ -69,7 +71,7 @@ imageRouter.post("/", upload.single("image"), async (req, res, next) => {
       response,
       requestedModel: model,
       mode,
-      requested: { size, quality, outputFormat, outputCompression, background },
+      requested: { size, quality, outputFormat, outputCompression, background, inputFidelity },
     });
 
     res.json(result);
@@ -110,6 +112,7 @@ function normalizeImageResponse({ response, requestedModel, mode, requested }) {
     quality: response?.quality || requested.quality,
     size: response?.size || requested.size,
     background: response?.background || requested.background,
+    inputFidelity: mode === "edit" ? requested.inputFidelity : null,
     usage: response?.usage || {
       input_tokens: 0,
       output_tokens: 0,
