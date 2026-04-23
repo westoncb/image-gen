@@ -1,0 +1,607 @@
+## Product shape
+
+* Start with a **prompt composer**
+* Optionally **attach an image**
+
+  * no attachment → **generate**
+  * attachment present → **edit**
+* Submit
+* Show a **medium preview** of the returned image
+* Click preview for a **fullscreen modal**
+* While modal is open:
+
+  * `Esc` closes
+  * `Cmd+S` / `Ctrl+S` saves the current image to a project-local folder
+* Click **Edit** on a result to create the **next stage to the right**
+* That next stage is preloaded with the previous result image as an attachment
+* Removing that attachment turns the stage back into a plain generation composer
+
+Because you dropped branching, I’d make this a **strict linear chain**. If you edit an earlier stage again, the app should **truncate everything to its right** and rebuild the chain from there. That keeps the code and mental model simple.
+
+---
+
+## Tech stack
+
+* **Frontend:** React + Vite + plain CSS
+* **Backend:** Node + Express
+* **OpenAI SDK:** official `openai` package for server-side JavaScript
+* **Storage:** in-memory app state, plus `./saved-images/` on disk for explicit saves only
+
+Using a tiny server is still the right move because OpenAI recommends keeping API keys in secure server-side storage or environment variables rather than exposing them in browser code. The official quickstart also points JavaScript users to the server-side SDK. ([OpenAI Developers][1])
+
+---
+
+## Core UI layout
+
+Use a horizontally scrolling stage strip:
+
+```text
+[ Stage 1 ]  [ Stage 2 ]  [ Stage 3 ]  [ Stage 4 ]
+```
+
+Each stage is a narrow column with:
+
+1. **Composer**
+
+   * textarea
+   * attach image button
+   * attachment preview chip/card
+   * remove attachment
+   * send button
+   * mode label: `Generate` or `Edit`
+
+2. **Result area**
+
+   * preview image, around 512px visual size
+   * metadata
+   * API warnings/errors
+   * `Edit` button
+
+3. Optional loading/error state
+
+Recommended CSS behavior:
+
+* outer strip: `display: flex; gap: 24px; overflow-x: auto; align-items: flex-start;`
+* each stage: fixed-ish width like `560px`
+* result image: `max-width: 100%; max-height: 512px; object-fit: contain;`
+
+That gives you the “new little UI block pops in to the right” interaction without any complex layout logic.
+
+---
+
+## Interaction model
+
+### Stage 1
+
+* Starts empty
+* User writes prompt
+* Optional image attach
+* Submit
+
+### Stage N
+
+* Created only when the user clicks `Edit` on Stage N-1
+* Starts with:
+
+  * empty prompt
+  * attachment preloaded from Stage N-1 result image
+* If user removes attachment, it becomes a fresh generation stage
+
+### Linear-chain rule
+
+Keep only one active chain:
+
+* editing Stage 2 when Stages 3–5 already exist should remove Stages 3–5 first
+* then create the new Stage 3 from Stage 2’s current result
+
+That prevents branching and keeps state dead simple.
+
+---
+
+## Data model
+
+This can all live in React state.
+
+```js
+{
+  stages: [
+    {
+      id: "stage_1",
+      parentStageId: null,
+      request: {
+        prompt: "",
+        attachment: null, // uploaded file or prior result image
+      },
+      status: "idle", // idle | submitting | success | error
+      error: null,
+      warning: null,
+      result: null // filled after response
+    }
+  ],
+  modal: {
+    isOpen: false,
+    stageId: null
+  }
+}
+```
+
+A successful `result` should look like:
+
+```js
+{
+  mode: "generate", // inferred from whether request had attachment
+  requestedModel: "gpt-image-2",
+  executedModel: null, // if API does not provide one
+  mimeType: "image/png",
+  imageDataUrl: "data:image/png;base64,...",
+  revisedPrompt: null,
+  outputFormat: "png",
+  quality: "high",
+  size: "1024x1024",
+  background: "opaque",
+  usage: {
+    input_tokens: 0,
+    output_tokens: 0,
+    total_tokens: 0
+  },
+  raw: {}
+}
+```
+
+---
+
+## Minimal component structure
+
+* `App`
+* `StageStrip`
+* `StageColumn`
+* `RequestComposer`
+* `AttachmentPreview`
+* `ResultCard`
+* `ImageModal`
+
+### `App`
+
+Owns:
+
+* array of stages
+* modal state
+* top-level error banner
+
+### `StageColumn`
+
+Owns one stage’s UI:
+
+* composer
+* result
+* edit button
+
+### `RequestComposer`
+
+Reusable for all stages:
+
+* prompt input
+* attach/remove image
+* submit
+
+Mode is derived automatically:
+
+```js
+const mode = attachment ? "edit" : "generate";
+```
+
+### `ResultCard`
+
+Shows:
+
+* preview
+* metadata
+* warnings/errors
+* `Edit`
+
+### `ImageModal`
+
+Fullscreen overlay:
+
+* dark backdrop
+* large centered image
+* `Esc` close
+* `Cmd+S` / `Ctrl+S` save current image
+
+---
+
+## Backend API
+
+You only need **two routes**.
+
+### `POST /api/image`
+
+Single route for both generate and edit.
+
+Use `multipart/form-data`.
+
+Why multipart:
+
+* supports normal user-uploaded images
+* also supports prior generated images converted to `Blob` and re-sent as files
+* avoids stuffing large base64 payloads into JSON unnecessarily
+
+#### Request fields
+
+* `prompt`
+* `model` defaulting to `gpt-image-2`
+* `image` optional
+
+#### Behavior
+
+* if no `image` is present: call **Images generate**
+* if `image` is present: call **Images edit**
+
+The Image API guide describes the split exactly this way: **Generations** create images from scratch from text prompts, while **Edits** modify existing images using a new prompt. The guide also describes `gpt-image-2` as the latest GPT Image model and says the Image API is the best choice when you only need to generate or edit a single image from one prompt. ([OpenAI Developers][2])
+
+### `POST /api/save-image`
+
+Saves the current modal image to disk.
+
+#### Request
+
+```json
+{
+  "filenameHint": "sunlit-lounge-flamingo",
+  "mimeType": "image/png",
+  "b64": "..."
+}
+```
+
+#### Behavior
+
+* sanitize filename
+* create `./saved-images/` if needed
+* write file
+* return saved path
+
+---
+
+## OpenAI API details to build around
+
+## 1) Generation path
+
+Use the Images API generation endpoint.
+
+The reference docs show:
+
+* `POST /images/generations`
+* `prompt`
+* `model`
+* `n`
+* `size`
+* `quality`
+* `output_format`
+* `output_compression`
+* `moderation`
+* optional streaming-related params for GPT image models. ([OpenAI Developers][3])
+
+The image guide’s JavaScript example also shows the official SDK shape:
+
+```js
+const result = await openai.images.generate({
+  model: "gpt-image-2",
+  prompt,
+});
+```
+
+That exact pattern is in the current guide. ([OpenAI Developers][2])
+
+## 2) Edit path
+
+Use the Images API edit endpoint.
+
+The reference docs describe:
+
+* `POST /images/edits`
+* one or more input images
+* a prompt
+* up to **16 images** for GPT image models
+* `n`
+* `output_format`
+* `output_compression`
+* `moderation`
+* similar output metadata to generation. ([OpenAI Developers][4])
+
+The guide explicitly says `gpt-image-2` supports editing, and it includes a JavaScript example using:
+
+```js
+const rsp = await client.images.edit({
+  model: "gpt-image-2",
+  image: ...,
+  mask: ...,
+  prompt: ...
+});
+```
+
+So for your app, sending a prior image plus a prompt maps cleanly to an **edit** request. ([OpenAI Developers][5])
+
+## 3) One doc inconsistency to account for
+
+There is still a doc inconsistency worth handling honestly:
+
+* the **guide** and **model page** say `gpt-image-2` supports generation and editing
+* the low-level **edits reference page** still enumerates older model names rather than clearly listing `gpt-image-2` in the parameter enum
+
+Because the higher-level guide and examples do show `gpt-image-2` editing, I would implement against `gpt-image-2` for both generate and edit, but keep error handling explicit in case the low-level backend behavior differs in your project/account. ([OpenAI Developers][5])
+
+---
+
+## Recommended parameters for this app
+
+Keep the UI small. I’d expose only these knobs:
+
+* `model` → fixed to `gpt-image-2`
+* `size` → default `1024x1024`
+* `quality` → default `high`
+* `output_format` → default `png`
+* `output_compression` → only shown when format is `jpeg` or `webp`
+* `background` → default `auto`
+* `moderation` → default `auto`
+
+Why these:
+
+* they are directly supported in the Image API docs
+* they are the ones most likely to matter for quality/latency/output handling
+* they keep the UI compact. ([OpenAI Developers][3])
+
+### Important current `gpt-image-2` constraints
+
+The current guide says:
+
+* `gpt-image-2` supports flexible sizes, not just the older fixed trio
+* both edges must be multiples of `16px`
+* max edge is `3840px`
+* aspect ratio must not exceed `3:1`
+* total pixels must be between `655,360` and `8,294,400`
+* outputs above roughly 2K are considered experimental
+* square images are typically fastest
+* transparent backgrounds are **not currently supported** for `gpt-image-2`
+* JPEG is faster than PNG if latency matters
+* complex prompts can take up to 2 minutes. ([OpenAI Developers][2])
+
+For the MVP, I’d hide arbitrary custom sizing and just offer:
+
+* `1024x1024`
+* `1536x1024`
+* `1024x1536`
+
+That avoids invalid-size UX entirely while still covering square, landscape, and portrait.
+
+---
+
+## Recommended defaults
+
+For simplicity:
+
+* model: `gpt-image-2`
+* size: `1024x1024`
+* quality: `high`
+* output_format: `png`
+* background: `auto`
+* moderation: `auto`
+
+That gives you a straightforward “good quality, minimal thinking” app without extra controls.
+
+---
+
+## Response handling
+
+The Images API response schema currently includes fields like:
+
+* `created`
+* `background`
+* `data`
+* `output_format`
+* `quality`
+* `size`
+* `usage`
+
+Each image item can include:
+
+* `b64_json`
+* `revised_prompt`
+* `url` in the generic schema, though GPT image models return base64-encoded image data rather than the old URL-style response format. ([OpenAI Developers][3])
+
+### Model metadata in the UI
+
+You asked for actual/executed model display if the API returns it.
+
+Today, the documented `ImagesResponse` schema does **not** show a top-level `model` field in either generation or edit responses. It does show output metadata like `background`, `output_format`, `quality`, `size`, and `usage`. So I would build the UI this way:
+
+* always show **Requested model: `gpt-image-2`**
+* show **Executed model** only if the backend finds a trustworthy model field in the live response
+* otherwise show **Executed model: not provided by API**
+
+That is the honest implementation based on the current schema. ([OpenAI Developers][3])
+
+### Revised prompt
+
+Because `revised_prompt` is part of the documented image item schema, I would also surface it in a collapsible “API details” section when present. That gives you useful debugging signal without cluttering the main card. ([OpenAI Developers][3])
+
+---
+
+## Save behavior
+
+When the modal is open:
+
+* listen for `keydown`
+* if `Escape`, close
+* if `metaKey || ctrlKey` and key is `s`, call `preventDefault()` and POST to `/api/save-image`
+
+Suggested filename:
+
+* derive from prompt
+* slugify it
+* append timestamp
+* infer extension from MIME type
+
+Example:
+
+```text
+saved-images/sunlit-lounge-flamingo-2026-04-22T15-11-08.png
+```
+
+Only intercept the save shortcut while the modal is open.
+
+---
+
+## Error handling
+
+Keep this visible and boring.
+
+### Composer-level
+
+Show errors directly under the stage composer for:
+
+* missing prompt
+* bad upload type
+* backend 4xx/5xx
+* OpenAI API validation errors
+
+### Result-level
+
+Show warning/meta lines on the result card for:
+
+* moderation-related warnings
+* unexpected response shape
+* missing image payload
+
+### Global banner
+
+Only for app-wide failures:
+
+* missing `OPENAI_API_KEY`
+* server unavailable
+* file-save failure unrelated to a specific stage
+
+Because `gpt-image-2` usage may require API organization verification, a failed request may be caused by project/account setup rather than bad app code, so that error text should be surfaced clearly instead of collapsed into a generic “something went wrong.” ([OpenAI Developers][2])
+
+---
+
+## Suggested file tree
+
+```text
+project/
+  client/
+    src/
+      App.jsx
+      main.jsx
+      index.css
+      components/
+        StageStrip.jsx
+        StageColumn.jsx
+        RequestComposer.jsx
+        AttachmentPreview.jsx
+        ResultCard.jsx
+        ImageModal.jsx
+      lib/
+        api.js
+        image.js
+        hotkeys.js
+  server/
+    index.js
+    openaiClient.js
+    routes/
+      image.js
+      saveImage.js
+    utils/
+      files.js
+      sanitize.js
+  saved-images/
+  package.json
+```
+
+---
+
+## Suggested frontend state transitions
+
+### Submit stage
+
+1. validate prompt
+2. build `FormData`
+3. append `prompt`
+4. append `model`
+5. append optional `image`
+6. POST `/api/image`
+7. decode response into `imageDataUrl`
+8. store result on that stage
+
+### Edit result
+
+1. truncate stages to this index
+2. append a new stage to the right
+3. seed its attachment with the current result image
+4. leave prompt blank and focus textarea
+
+That one rule keeps the app consistent.
+
+---
+
+## Recommended backend route shape
+
+### `POST /api/image`
+
+Use `multer` or similar.
+
+Pseudo-flow:
+
+```js
+if (!req.body.prompt?.trim()) return 400;
+
+const hasImage = Boolean(req.file);
+
+if (hasImage) {
+  // openai.images.edit(...)
+} else {
+  // openai.images.generate(...)
+}
+
+return {
+  ok: true,
+  mode: hasImage ? "edit" : "generate",
+  requestedModel: "gpt-image-2",
+  executedModel: extractedModelOrNull,
+  image: {
+    mimeType,
+    b64,
+  },
+  revisedPrompt,
+  outputFormat,
+  quality,
+  size,
+  background,
+  usage,
+  warnings: []
+};
+```
+
+### `POST /api/save-image`
+
+Pseudo-flow:
+
+```js
+validate b64 + mimeType
+mkdir saved-images if missing
+write file
+return saved path
+```
+
+---
+
+## Do not use streaming mode
+
+This is a complication we don't need right now.
+
+---
+
+[1]: https://developers.openai.com/api/docs/guides/production-best-practices "Production best practices | OpenAI API"
+[2]: https://developers.openai.com/api/docs/guides/image-generation "Image generation | OpenAI API"
+[3]: https://developers.openai.com/api/reference/resources/images/methods/generate/ "Create image | OpenAI API Reference"
+[4]: https://developers.openai.com/api/reference/resources/images/methods/edit/ "Create image edit | OpenAI API Reference"
+[5]: https://developers.openai.com/api/docs/models/gpt-image-2 "GPT Image 2 Model | OpenAI API"
