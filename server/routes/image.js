@@ -35,6 +35,7 @@ imageRouter.post("/", upload.single("image"), async (req, res, next) => {
     const outputFormat = String(req.body.output_format || "png").trim();
     const background = String(req.body.background || "auto").trim();
     const moderation = String(req.body.moderation || "auto").trim();
+    const outputCompression = Number(req.body.output_compression || 100);
 
     if (!prompt) {
       return res.status(400).json({ error: "Prompt is required." });
@@ -52,6 +53,10 @@ imageRouter.post("/", upload.single("image"), async (req, res, next) => {
       moderation,
     };
 
+    if (["jpeg", "webp"].includes(outputFormat)) {
+      common.output_compression = outputCompression;
+    }
+
     const mode = req.file ? "edit" : "generate";
     const response = req.file
       ? await openai.images.edit({
@@ -64,7 +69,7 @@ imageRouter.post("/", upload.single("image"), async (req, res, next) => {
       response,
       requestedModel: model,
       mode,
-      requested: { size, quality, outputFormat, background },
+      requested: { size, quality, outputFormat, outputCompression, background },
     });
 
     res.json(result);
@@ -101,6 +106,7 @@ function normalizeImageResponse({ response, requestedModel, mode, requested }) {
     imageDataUrl: b64 ? `data:${mimeType};base64,${b64}` : null,
     revisedPrompt: image?.revised_prompt || null,
     outputFormat: response?.output_format || requested.outputFormat,
+    outputCompression: requested.outputCompression,
     quality: response?.quality || requested.quality,
     size: response?.size || requested.size,
     background: response?.background || requested.background,

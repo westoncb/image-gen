@@ -1,5 +1,6 @@
 import { useId, useRef, useState } from "react";
 import AttachmentPreview from "./AttachmentPreview.jsx";
+import ConfigModal from "./ConfigModal.jsx";
 
 const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
 
@@ -7,8 +8,10 @@ export default function RequestComposer({ stage, onRequestChange, onSubmit }) {
   const inputId = useId();
   const fileInputRef = useRef(null);
   const [uploadError, setUploadError] = useState(null);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
   const mode = stage.request.attachment ? "Edit" : "Generate";
   const isSubmitting = stage.status === "submitting";
+  const config = stage.request.config;
 
   function handleFileChange(event) {
     const file = event.target.files?.[0];
@@ -52,7 +55,9 @@ export default function RequestComposer({ stage, onRequestChange, onSubmit }) {
     >
       <div className="composer-topline">
         <span className={`mode-chip mode-${mode.toLowerCase()}`}>{mode}</span>
-        <span className="composer-hint">1024x1024 PNG, high quality</span>
+        <span className="composer-hint">
+          {config.size} {config.outputFormat.toUpperCase()}, {config.quality} quality
+        </span>
       </div>
 
       <label htmlFor={`${inputId}-prompt`}>Prompt</label>
@@ -80,6 +85,9 @@ export default function RequestComposer({ stage, onRequestChange, onSubmit }) {
         <label className="attach-button" htmlFor={`${inputId}-file`}>
           Attach image
         </label>
+        <button type="button" className="config-button" onClick={() => setIsConfigOpen(true)}>
+          Config
+        </button>
         <button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Submitting..." : "Send"}
         </button>
@@ -87,6 +95,16 @@ export default function RequestComposer({ stage, onRequestChange, onSubmit }) {
 
       {uploadError ? <p className="inline-error">{uploadError}</p> : null}
       {stage.error ? <p className="inline-error">{stage.error}</p> : null}
+
+      <ConfigModal
+        isOpen={isConfigOpen}
+        config={config}
+        onCancel={() => setIsConfigOpen(false)}
+        onDone={(nextConfig) => {
+          onRequestChange(stage.id, { config: nextConfig });
+          setIsConfigOpen(false);
+        }}
+      />
     </form>
   );
 }

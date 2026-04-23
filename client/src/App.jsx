@@ -4,6 +4,16 @@ import StageStrip from "./components/StageStrip.jsx";
 import { checkHealth, saveImage, submitImageRequest } from "./lib/api.js";
 import { promptSlug, resultToAttachment } from "./lib/image.js";
 
+const DEFAULT_CONFIG = {
+  model: "gpt-image-2",
+  size: "1024x1024",
+  quality: "high",
+  outputFormat: "png",
+  outputCompression: 100,
+  background: "auto",
+  moderation: "auto",
+};
+
 function createStage(index, parentStageId = null, attachment = null) {
   return {
     id: `stage_${index + 1}`,
@@ -12,6 +22,7 @@ function createStage(index, parentStageId = null, attachment = null) {
     request: {
       prompt: "",
       attachment,
+      config: { ...DEFAULT_CONFIG },
     },
     status: "idle",
     error: null,
@@ -80,6 +91,7 @@ export default function App() {
       const result = await submitImageRequest({
         prompt,
         attachment: stage.request.attachment,
+        config: stage.request.config,
       });
 
       setStages((current) =>
@@ -149,17 +161,6 @@ export default function App() {
 
   return (
     <main className="app-shell">
-      <header className="hero">
-        <div>
-          <p className="eyebrow">Image Chain Studio</p>
-          <h1>Generate, edit, and continue in a strict linear chain.</h1>
-        </div>
-        <div className="hero-card">
-          <span>Model</span>
-          <strong>gpt-image-2</strong>
-        </div>
-      </header>
-
       {banner ? (
         <div className="global-banner" role="alert">
           <span>{banner}</span>

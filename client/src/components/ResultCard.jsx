@@ -44,6 +44,12 @@ export default function ResultCard({ stage, onEdit, onPreviewClick }) {
         <strong>{result.executedModel || "not provided by API"}</strong>
         <span>Format</span>
         <strong>{result.outputFormat}</strong>
+        {result.outputCompression !== undefined ? (
+          <>
+            <span>Compression</span>
+            <strong>{result.outputCompression}</strong>
+          </>
+        ) : null}
         <span>Quality</span>
         <strong>{result.quality}</strong>
         <span>Size</span>

@@ -6,15 +6,19 @@ export async function checkHealth() {
   return response.json();
 }
 
-export async function submitImageRequest({ prompt, attachment }) {
+export async function submitImageRequest({ prompt, attachment, config }) {
   const body = new FormData();
   body.set("prompt", prompt);
-  body.set("model", "gpt-image-2");
-  body.set("size", "1024x1024");
-  body.set("quality", "high");
-  body.set("output_format", "png");
-  body.set("background", "auto");
-  body.set("moderation", "auto");
+  body.set("model", config?.model || "gpt-image-2");
+  body.set("size", config?.size || "1024x1024");
+  body.set("quality", config?.quality || "high");
+  body.set("output_format", config?.outputFormat || "png");
+  body.set("background", config?.background || "auto");
+  body.set("moderation", config?.moderation || "auto");
+
+  if (["jpeg", "webp"].includes(config?.outputFormat)) {
+    body.set("output_compression", String(config?.outputCompression ?? 100));
+  }
 
   if (attachment?.file) {
     body.set("image", attachment.file, attachment.file.name);

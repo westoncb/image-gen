@@ -47,61 +47,7 @@ button:disabled {
 
 .app-shell {
   min-height: 100vh;
-  padding: 40px;
-}
-
-.hero {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 28px;
-}
-
-.eyebrow {
-  margin: 0 0 10px;
-  color: var(--accent-dark);
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.hero h1 {
-  max-width: 780px;
-  margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(2.4rem, 7vw, 5.8rem);
-  font-weight: 800;
-  letter-spacing: -0.07em;
-  line-height: 0.9;
-}
-
-.hero-card {
-  min-width: 190px;
-  padding: 18px;
-  border: 2px solid var(--ink);
-  border-radius: 24px;
-  background: var(--paper);
-  box-shadow: 8px 8px 0 var(--ink);
-  transform: rotate(2deg);
-}
-
-.hero-card span,
-.hero-card strong {
-  display: block;
-}
-
-.hero-card span {
-  color: var(--muted);
-  font-size: 0.82rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-}
-
-.hero-card strong {
-  margin-top: 6px;
-  font-size: 1.4rem;
+  padding: 24px 40px 40px;
 }
 
 .global-banner {
@@ -249,9 +195,10 @@ input[type="file"] {
 }
 
 .attach-button,
+.config-button,
 .composer-actions button,
 .edit-next-button,
-.modal-toolbar button {
+.config-panel button {
   border: 2px solid var(--ink);
   border-radius: 999px;
   padding: 10px 16px;
@@ -261,10 +208,14 @@ input[type="file"] {
   box-shadow: 4px 4px 0 var(--ink);
 }
 
-.composer-actions button,
+.composer-actions button[type="submit"],
 .edit-next-button {
   background: var(--accent);
   color: white;
+}
+
+.config-button {
+  background: #f6dfaa;
 }
 
 .attachment-card {
@@ -440,79 +391,98 @@ input[type="file"] {
   z-index: 20;
   display: grid;
   place-items: center;
-  padding: 28px;
-}
-
-.modal-scrim {
-  position: absolute;
-  inset: 0;
-  border: 0;
-  background: rgb(13 10 7 / 86%);
-}
-
-.modal-panel {
-  position: relative;
-  z-index: 1;
-  width: min(1180px, 100%);
-  max-height: calc(100vh - 56px);
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 14px;
-  padding: 16px;
-  border-radius: 28px;
   background: #17110c;
-  color: #fff4dc;
-  box-shadow: 0 28px 80px rgb(0 0 0 / 45%);
 }
 
-.modal-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 18px;
-}
-
-.modal-toolbar span {
-  display: block;
-  margin-top: 3px;
-  color: #d9c7a2;
-}
-
-.modal-panel img {
+.modal-backdrop img {
   max-width: 100%;
-  max-height: calc(100vh - 190px);
-  justify-self: center;
+  max-height: 100%;
   object-fit: contain;
-  border-radius: 18px;
 }
 
-.save-status {
-  min-height: 20px;
+.config-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(23 17 12 / 68%);
+}
+
+.config-panel {
+  width: min(680px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 22px;
+  border: 2px solid var(--ink);
+  border-radius: 28px;
+  background: var(--paper);
+  box-shadow: 12px 12px 0 var(--ink);
+}
+
+.config-panel header,
+.config-panel footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.config-panel header {
+  margin-bottom: 20px;
+}
+
+.config-panel footer {
+  margin-top: 22px;
+  justify-content: flex-end;
+}
+
+.config-panel h2,
+.config-panel p {
   margin: 0;
-  color: #d9c7a2;
 }
 
-.save-saved {
-  color: #9be7b0;
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--accent-dark);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
-.save-error {
-  color: #ffb4a8;
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.config-grid label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.config-grid input,
+.config-grid select {
+  width: 100%;
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: #fffdf6;
+  color: var(--ink);
+}
+
+.secondary-button {
+  background: #fffdf6;
+  color: var(--ink);
 }
 
 @media (max-width: 760px) {
   .app-shell {
     padding: 22px 14px;
-  }
-
-  .hero {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .hero-card {
-    transform: none;
-    box-shadow: 5px 5px 0 var(--ink);
   }
 
   .stage-column {
@@ -530,6 +500,10 @@ input[type="file"] {
   }
 
   .metadata-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .config-grid {
     grid-template-columns: 1fr;
   }
 }
